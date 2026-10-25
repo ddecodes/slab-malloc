@@ -1,0 +1,85 @@
+
+#pragma once
+#include <cstdint>
+#include <cassert>
+#include <cstring>
+
+// Macro: extract a single bit from a value
+#define CHECK_BIT(value, bit) ((value >> bit) & 1)
+
+// Sentinel: returned when no free/used bit is found
+#define BITMAP_NO_BITS_LEFT 0xFFFFFFFF
+
+template <size_t SIZE> class Bitmap {
+private:
+	uint32_t m_bitmap_data[SIZE];
+
+public:
+	void init();
+	void set_used(unsigned position);
+	void set_unused(unsigned position);
+	unsigned find_unused(unsigned search_start = 0);
+	unsigned find_used(unsigned search_start = 0);
+	bool check_used(unsigned position);
+	bool check_unused(unsigned position);
+};
+
+
+/**
+ * init() — Zero out the entire bitmap (all blocks start as FREE).
+ */
+template <size_t SIZE> void Bitmap<SIZE>::init() {
+	memset(m_bitmap_data, 0, sizeof(m_bitmap_data));
+}
+
+
+template <size_t SIZE> void Bitmap<SIZE>::set_used(unsigned position) {
+	assert(position < SIZE);
+	m_bitmap_data[position / 32] |= (1 << (position % 32));
+}
+
+template <size_t SIZE> void Bitmap<SIZE>::set_unused(unsigned position) {
+	assert(position < SIZE);
+	m_bitmap_data[position / 32] &= ~(1 << (position % 32));
+}
+
+
+template <size_t SIZE> unsigned Bitmap<SIZE>::find_unused(unsigned search_start) {
+	assert(search_start < SIZE);
+	size_t bit_index = search_start;
+	while (bit_index < SIZE) {
+		if (m_bitmap_data[bit_index / 32] == 0xFF) {
+			bit_index += 32;
+			continue;
+		}
+		if (!CHECK_BIT(m_bitmap_data[bit_index / 32], bit_index % 32))
+			return bit_index;
+
+		bit_index++;
+	}
+	return BITMAP_NO_BITS_LEFT;
+}
+
+template <size_t SIZE> unsigned Bitmap<SIZE>::find_used(unsigned search_start) {
+	assert(search_start < SIZE);
+	size_t bit_index = search_start;
+	while (bit_index < SIZE) {
+		if (m_bitmap_data[bit_index / 32] == 0) {
+			bit_index += 32;
+			continue;
+		}
+		if (CHECK_BIT(m_bitmap_data[bit_index / 32], bit_index % 32))
+			return bit_index;
+
+		bit_index++;
+	}
+	return BITMAP_NO_BITS_LEFT;
+}
+
+template <size_t SIZE> bool Bitmap<SIZE>::check_used(unsigned position) {
+	return CHECK_BIT(m_bitmap_data[position / 32], position % 32);
+}
+
+template <size_t SIZE> bool Bitmap<SIZE>::check_unused(unsigned position) {
+	return !CHECK_BIT(m_bitmap_data[position / 32], position % 32);
+}
